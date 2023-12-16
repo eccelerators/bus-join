@@ -64,29 +64,43 @@ end entity;
 
 architecture Behavioural of BusJoinWishbone is
     
-    type State_T is (Idle, Cycle);
+    type T_State is (Idle, Cycle);
       
     function resolveCycleRequests (
-        variable CycleRequests : std_logic_vector(NUMBER_OF_BUSSES-1 downto 0);
-        variable MissedCountTable : array_of_unsigned(NUMBER_OF_BUSSES-1 downto 0)
+        CycleRequests : std_logic_vector(NUMBER_OF_BUSSES-1 downto 0);
+        MissCountTable : array_of_unsigned(NUMBER_OF_BUSSES-1 downto 0)
     ) return integer is
         variable GreatestMissCount: integer := 0;
         variable SelectedRequest: integer := -1; 
     begin
         for i in 0 to NUMBER_OF_BUSSES-1 loop
             if CycleRequests(i) then
-                if MissCountTable(i) > GreatestMissedCount then
-                    GreatestMissCount := MissedCountTable(i);
+                if MissCountTable(i) > GreatestMissCount then
+                    GreatestMissCount := to_integer(MissCountTable(i));
                     SelectedRequest := i;
                 end if;
             end if;
         end loop;
+        return SelectedRequest;
     end function;
     
     signal MissCountTable : array_of_unsigned(NUMBER_OF_BUSSES-1 downto 0) (BUS_COUNT_WIDTH-1 downto 0);
-    signal SelectedBus : std_logic_vector(BUS_COUNT_WIDTH-1 downto 0); 
+    signal SelectedBus : unsigned(BUS_COUNT_WIDTH-1 downto 0); 
+    signal State : T_State;
+    signal StateNumbered : unsigned(0 downto 0);
 
 begin
+
+    -- For GHDL and HW debug
+    prcNumberStates : process(State) is
+    begin
+        case State is
+            when Idle =>
+                StateNumbered <= to_unsigned(0, StateNumbered'length);
+            when Cycle =>
+                StateNumbered <= to_unsigned(1, StateNumbered'length);
+        end case;
+    end process;
 
     genDataOut : for i in 0 to BUS_COUNT_WIDTH-1 generate
         DatOut(i) <= JoinDatIn;
@@ -113,13 +127,12 @@ begin
                         JoinCyc <= '1';                   
                         JoinAdr <= Adr(ri);
                         JoinSel <= Sel(ri);
-                        JoinWe <= DatIn(ri);
-                        JoinStb <= We(ri);
-                        JoinAdr <= Stb(ri);
+                        JoinWe <= We(ri);
+                        JoinStb <= Stb(ri);
                         JoinDatOut <= DatIn(ri);
-                        MissCountTable(i) <= (others => '0');      
+                        MissCountTable(ri) <= (others => '0');      
                         for i in 0 to NUMBER_OF_BUSSES-1 loop
-                            if CycleRequests(i) and (i /= ri) then
+                            if Cyc(i) = '1' and (i /= ri) then
                                 MissCountTable(i) <= MissCountTable(i) + 1;
                             end if;
                         end loop;
