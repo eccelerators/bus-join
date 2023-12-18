@@ -31,15 +31,10 @@ library ieee;
 	use ieee.std_logic_1164.all;
 	use ieee.numeric_std.all;
 	
-use work.BusJoinPackage.all;
-
+library eccelerators;
+    use eccelerators.basic.all;
+    
 entity BusJoinWishbone is
-    generic(
-        NUMBER_OF_BUSSES : positive;
-        BUS_COUNT_WIDTH : positive; 
-        ADDRESS_WIDTH : positive;
-        DATA_WIDTH : positive
-    );
 	port (
 		Clk : in std_logic;
 		Rst : in std_logic;
@@ -63,17 +58,23 @@ entity BusJoinWishbone is
 end entity;
 
 architecture Behavioural of BusJoinWishbone is
+
+    constant BUSSES_LENGTH : natural := Cyc'length;
+    constant BUSSES_LEFT : natural := BUSSES_LENGTH - 1;
+    
+    constant BUSSES_COUNT_LENGTH : natural := array_element_counter_length(Cyc);
+    constant BUSSES_COUNT_LEFT : natural := BUSSES_COUNT_LENGTH - 1;
     
     type T_State is (Idle, Cycle);
       
     function resolveCycleRequests (
-        CycleRequests : std_logic_vector(NUMBER_OF_BUSSES-1 downto 0);
-        MissCountTable : array_of_unsigned(NUMBER_OF_BUSSES-1 downto 0)
+        CycleRequests : std_logic_vector(BUSSES_LEFT downto 0);
+        MissCountTable : array_of_unsigned(BUSSES_LEFT downto 0)
     ) return integer is
         variable GreatestMissCount: integer := 0;
         variable SelectedRequest: integer := -1; 
     begin
-        for i in 0 to NUMBER_OF_BUSSES-1 loop
+        for i in 0 to BUSSES_LEFT loop
             if CycleRequests(i) then
                 if MissCountTable(i) > GreatestMissCount then
                     GreatestMissCount := to_integer(MissCountTable(i));
@@ -84,8 +85,8 @@ architecture Behavioural of BusJoinWishbone is
         return SelectedRequest;
     end function;
     
-    signal MissCountTable : array_of_unsigned(NUMBER_OF_BUSSES-1 downto 0) (BUS_COUNT_WIDTH-1 downto 0);
-    signal SelectedBus : unsigned(BUS_COUNT_WIDTH-1 downto 0); 
+    signal MissCountTable : array_of_unsigned(BUSSES_LEFT downto 0) (BUSSES_COUNT_LEFT downto 0);
+    signal SelectedBus : unsigned(BUSSES_COUNT_LEFT downto 0); 
     signal State : T_State;
     signal StateNumbered : unsigned(0 downto 0);
 
@@ -102,7 +103,7 @@ begin
         end case;
     end process;
 
-    genDataOut : for i in 0 to BUS_COUNT_WIDTH-1 generate
+    genDataOut : for i in 0 to BUSSES_COUNT_LEFT generate
         DatOut(i) <= JoinDatIn;
     end generate;
      
@@ -123,7 +124,7 @@ begin
                 when Idle =>
                     ri := resolveCycleRequests(Cyc, MissCountTable);
                     if ri >= 0 then       
-                        SelectedBus <= to_unsigned(ri, BUS_COUNT_WIDTH);
+                        SelectedBus <= to_unsigned(ri, BUSSES_COUNT_LENGTH);
                         JoinCyc <= '1';                   
                         JoinAdr <= Adr(ri);
                         JoinSel <= Sel(ri);
@@ -131,7 +132,7 @@ begin
                         JoinStb <= Stb(ri);
                         JoinDatOut <= DatIn(ri);
                         MissCountTable(ri) <= (others => '0');      
-                        for i in 0 to NUMBER_OF_BUSSES-1 loop
+                        for i in 0 to BUSSES_LEFT loop
                             if Cyc(i) = '1' and (i /= ri) then
                                 MissCountTable(i) <= MissCountTable(i) + 1;
                             end if;
