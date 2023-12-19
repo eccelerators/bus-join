@@ -119,7 +119,7 @@ begin
         Ack <= std_logic_vector(to_unsigned(0, Ack'length));
         for i in 0 to BUSSES_COUNT_LEFT loop
             if i = to_integer(SelectedBus) then
-                Ack(i) <= '1';
+                Ack(i) <= JoinAck;
             end if;
         end loop;
     end process;
@@ -169,7 +169,7 @@ begin
                         JoinWe <= '0';
                         JoinStb <= '0';
                         JoinDatOut <= std_logic_vector(to_unsigned(0, JoinDatOut'length));
-                        State <= Cycle;
+                        State <= Idle;
                     end if;
                 
             end case;  
