@@ -78,6 +78,12 @@ architecture Behavioural of BusJoinWishbone is
             if CycleRequests(i) then
                 if MissCountTable(i) > GreatestMissCount then
                     GreatestMissCount := to_integer(MissCountTable(i));
+                end if;
+            end if;
+        end loop;
+        for i in 0 to BUSSES_LEFT loop
+            if CycleRequests(i) then
+                if MissCountTable(i) = GreatestMissCount then
                     SelectedRequest := i;
                 end if;
             end if;
@@ -107,14 +113,29 @@ begin
         DatOut(i) <= JoinDatIn;
     end generate;
      
-    Ack(to_integer(SelectedBus)) <= JoinAck;
-
+     
+    prcAck : process(JoinAck, SelectedBus) is
+    begin
+        Ack <= std_logic_vector(to_unsigned(0, Ack'length));
+        for i in 0 to BUSSES_COUNT_LEFT loop
+            if i = to_integer(SelectedBus) then
+                Ack(i) <= '1';
+            end if;
+        end loop;
+    end process;
+         
     prcJoin : process ( Clk, Rst) is
         variable ri : integer := 0;
     begin
         if Rst then
         
             SelectedBus <= (others => '0');
+            JoinCyc <= '0';                   
+            JoinAdr <= std_logic_vector(to_unsigned(0, JoinAdr'length));
+            JoinSel <= std_logic_vector(to_unsigned(0, JoinSel'length));
+            JoinWe <= '0';
+            JoinStb <= '0';
+            JoinDatOut <= std_logic_vector(to_unsigned(0, JoinDatOut'length));
             MissCountTable <= (others => (others => '0'));
             
         elsif rising_edge(Clk) then
@@ -143,6 +164,11 @@ begin
                 when Cycle =>
                     if JoinAck then
                         JoinCyc <= '0';
+                        JoinAdr <= std_logic_vector(to_unsigned(0, JoinAdr'length));
+                        JoinSel <= std_logic_vector(to_unsigned(0, JoinSel'length));
+                        JoinWe <= '0';
+                        JoinStb <= '0';
+                        JoinDatOut <= std_logic_vector(to_unsigned(0, JoinDatOut'length));
                         State <= Cycle;
                     end if;
                 
